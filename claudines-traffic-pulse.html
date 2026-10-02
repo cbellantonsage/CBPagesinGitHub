@@ -1,0 +1,808 @@
+<title>Parc Claude Traffic Pulse</title>
+<style>
+/* Layout: summary tile row above two chart panels (trend + top pages), then a source-performance table; single column on mobile */
+:root{
+  --bg-page:#f9f9f7;
+  --bg-card:#ffffff;
+  --text-primary:#0b0b0b;
+  --text-secondary:#52514e;
+  --text-muted:#898781;
+  --border:rgba(11,11,11,0.10);
+  --grid-line:#e1e0d9;
+  --series-1:#2a78d6;
+  --series-1-soft:rgba(42,120,214,0.14);
+  --series-2:#eb6834;
+  --series-3:#1baf7a;
+  --good:#0ca30c;
+  --warning:#fab219;
+  --critical:#d03b3b;
+  --focus:#2a78d6;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg-page:#0d0d0d;
+    --bg-card:#1a1a19;
+    --text-primary:#ffffff;
+    --text-secondary:#c3c2b7;
+    --text-muted:#898781;
+    --border:rgba(255,255,255,0.10);
+    --grid-line:#2c2c2a;
+    --series-1:#3987e5;
+    --series-1-soft:rgba(57,135,229,0.18);
+    --series-2:#d95926;
+    --series-3:#199e70;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg-page:#0d0d0d;
+  --bg-card:#1a1a19;
+  --text-primary:#ffffff;
+  --text-secondary:#c3c2b7;
+  --text-muted:#898781;
+  --border:rgba(255,255,255,0.10);
+  --grid-line:#2c2c2a;
+  --series-1:#3987e5;
+  --series-1-soft:rgba(57,135,229,0.18);
+  --series-2:#d95926;
+  --series-3:#199e70;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box;}
+body{
+  background:var(--bg-page);
+  color:var(--text-primary);
+  font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+  padding-inline:20px;
+  padding-block:28px;
+  max-width:1120px;
+  margin-inline:auto;
+}
+h1,h2,h3{font-family:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;}
+.eyebrow{
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:0.07em;
+  text-transform:uppercase;
+  color:var(--text-muted);
+}
+header.page-head{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:16px;
+  margin-bottom:22px;
+}
+header.page-head h1{
+  font-size:28px;
+  font-weight:800;
+  margin:4px 0 4px;
+  text-wrap:balance;
+}
+header.page-head p{
+  margin:0;
+  color:var(--text-secondary);
+  font-size:14px;
+  max-width:52ch;
+}
+
+/* Upload panel */
+.upload-panel{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:14px;
+  padding:16px;
+  border:1px dashed var(--border);
+  border-radius:12px;
+  background:var(--bg-card);
+  margin-bottom:24px;
+}
+.upload-panel.drag-over{
+  border-color:var(--series-1);
+  background:var(--series-1-soft);
+}
+.upload-panel .copy{flex:1 1 320px;min-width:0;}
+.upload-panel .copy strong{display:block;font-size:14px;margin-bottom:2px;}
+.upload-panel .copy span{font-size:12.5px;color:var(--text-muted);}
+.btn{
+  font:inherit;
+  font-size:13.5px;
+  font-weight:600;
+  padding:9px 16px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:var(--bg-page);
+  color:var(--text-primary);
+  cursor:pointer;
+  white-space:nowrap;
+}
+.btn:hover{border-color:var(--series-1);}
+.btn:focus-visible, a:focus-visible, button:focus-visible, input:focus-visible{
+  outline:2px solid var(--focus);
+  outline-offset:2px;
+}
+.btn.primary{
+  background:var(--series-1);
+  border-color:var(--series-1);
+  color:#fff;
+}
+#file-input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
+.status-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  font-weight:600;
+  padding:4px 9px;
+  border-radius:999px;
+  background:var(--bg-page);
+  border:1px solid var(--border);
+  color:var(--text-secondary);
+}
+.status-chip.sample::before{content:"●";color:var(--text-muted);}
+.status-chip.loaded::before{content:"●";color:var(--good);}
+
+.error-box{
+  display:none;
+  margin-bottom:20px;
+  padding:14px 16px;
+  border-radius:10px;
+  border:1px solid var(--critical);
+  background:color-mix(in srgb, var(--critical) 10%, var(--bg-card));
+  color:var(--text-primary);
+  font-size:13.5px;
+}
+.error-box.show{display:block;}
+.error-box strong{display:block;margin-bottom:4px;}
+
+/* Stat tiles */
+.tiles{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:14px;
+  margin-bottom:28px;
+}
+.tile{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px 18px;
+  min-width:0;
+}
+.tile .value{
+  font-size:26px;
+  font-weight:800;
+  margin:6px 0 4px;
+  line-height:1.15;
+  font-variant-numeric:tabular-nums;
+  overflow-wrap:anywhere;
+}
+.tile .caption{
+  font-size:12.5px;
+  color:var(--text-secondary);
+  min-height:1.2em;
+}
+.tile .flag{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-size:11.5px;
+  font-weight:700;
+  margin-top:6px;
+  padding:2px 8px;
+  border-radius:999px;
+}
+.flag.warn{background:color-mix(in srgb, var(--warning) 22%, transparent);color:#7a5200;}
+:root[data-theme="dark"] .flag.warn,
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .flag.warn{color:#ffd480;}}
+.flag.critical{background:color-mix(in srgb, var(--critical) 18%, transparent);color:var(--critical);}
+.flag.good{background:color-mix(in srgb, var(--good) 18%, transparent);color:var(--good);}
+
+/* Chart panels */
+.panels{
+  display:grid;
+  grid-template-columns:1.3fr 1fr;
+  gap:14px;
+  margin-bottom:28px;
+}
+@media (max-width:760px){ .panels{grid-template-columns:1fr;} }
+.panel{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px 18px 18px;
+  min-width:0;
+}
+.panel-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom:10px;
+}
+.panel-head h3{font-size:14.5px;margin:0;font-weight:700;}
+.toggle-link{
+  font-size:12px;
+  font-weight:600;
+  color:var(--series-1);
+  background:none;
+  border:none;
+  cursor:pointer;
+  padding:2px 0;
+  font-family:inherit;
+}
+.chart-wrap{position:relative;}
+svg.chart{width:100%;height:auto;display:block;overflow:visible;}
+.axis-label{font-size:9px;fill:var(--text-muted);}
+.grid-line{stroke:var(--grid-line);stroke-width:1;}
+.tooltip{
+  position:absolute;
+  pointer-events:none;
+  background:var(--text-primary);
+  color:var(--bg-card);
+  font-size:11.5px;
+  padding:6px 9px;
+  border-radius:7px;
+  transform:translate(-50%,-115%);
+  white-space:nowrap;
+  opacity:0;
+  transition:opacity 0.08s;
+  z-index:5;
+}
+.tooltip.show{opacity:1;}
+
+table.datatable{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px;
+}
+table.datatable th{
+  text-align:left;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:0.04em;
+  color:var(--text-muted);
+  font-weight:700;
+  padding:6px 8px;
+  border-bottom:1px solid var(--grid-line);
+}
+table.datatable td{
+  padding:7px 8px;
+  border-bottom:1px solid var(--grid-line);
+  color:var(--text-secondary);
+  font-variant-numeric:tabular-nums;
+}
+table.datatable td.name{color:var(--text-primary);font-variant-numeric:normal;}
+table.datatable tbody tr:last-child td{border-bottom:none;}
+.table-scroll{overflow-x:auto;}
+
+/* Source table */
+.source-panel{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px 18px 18px;
+  margin-bottom:28px;
+}
+.source-panel h3{font-size:14.5px;margin:0 0 12px;font-weight:700;}
+.best-row td{background:color-mix(in srgb, var(--good) 8%, transparent);}
+.chip{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:11px;
+  font-weight:700;
+  color:var(--good);
+  background:color-mix(in srgb, var(--good) 16%, transparent);
+  padding:2px 7px;
+  border-radius:999px;
+  margin-left:7px;
+}
+
+details.preview{
+  margin-bottom:10px;
+}
+details.preview summary{
+  cursor:pointer;
+  font-size:13px;
+  font-weight:600;
+  color:var(--text-secondary);
+  padding:4px 0;
+}
+details.preview .table-scroll{margin-top:10px;max-height:320px;overflow-y:auto;}
+
+footer{
+  color:var(--text-muted);
+  font-size:12px;
+  text-align:center;
+  padding-top:8px;
+}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap">
+
+<header class="page-head">
+  <div>
+    <div class="eyebrow">Site analytics</div>
+    <h1>Parc Claude Traffic Pulse</h1>
+    <p>Upload a CSV export to see total visits, your top page, bounce rate, time on site, best traffic source, and conversion rate at a glance.</p>
+  </div>
+</header>
+
+<div class="upload-panel" id="drop-zone">
+  <div class="copy">
+    <strong>Upload a CSV file</strong>
+    <span>Drag & drop, or browse. Works with columns like page, date, visits, bounce rate, time on page, conversions, traffic source — header names are matched flexibly.</span>
+  </div>
+  <span class="status-chip sample" id="status-chip">Showing sample data</span>
+  <label class="btn primary" for="file-input">Upload CSV</label>
+  <button class="btn" id="reset-btn" type="button">Reset to sample</button>
+  <input type="file" id="file-input" accept=".csv,text/csv">
+</div>
+
+<div class="error-box" id="error-box"><strong>Couldn't read that file</strong><span id="error-text"></span></div>
+
+<section class="tiles" id="tiles" aria-label="Summary metrics"></section>
+
+<section class="panels">
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Visits over time</h3>
+      <button class="toggle-link" data-toggle="trend">View as table</button>
+    </div>
+    <div class="chart-wrap" id="trend-chart-wrap"></div>
+    <div class="table-scroll" id="trend-table-wrap" hidden></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <h3>Visits by page</h3>
+      <button class="toggle-link" data-toggle="pages">View as table</button>
+    </div>
+    <div class="chart-wrap" id="pages-chart-wrap"></div>
+    <div class="table-scroll" id="pages-table-wrap" hidden></div>
+  </div>
+</section>
+
+<section class="source-panel">
+  <h3>Traffic source performance</h3>
+  <div class="table-scroll" id="source-table-wrap"></div>
+</section>
+
+<details class="preview">
+  <summary id="preview-summary">Preview parsed rows</summary>
+  <div class="table-scroll" id="preview-table-wrap"></div>
+</details>
+
+<footer>Everything runs in your browser — the CSV is never uploaded anywhere.</footer>
+
+<script>
+(function(){
+
+// ---------- sample data generator (synthetic, for demo purposes) ----------
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function generateSampleRows(){
+  const rand=mulberry32(20260601);
+  const pages=[
+    {name:"Home",base:4800,bounce:0.32,time:85},
+    {name:"Pricing",base:2100,bounce:0.41,time:70},
+    {name:"Blog: Getting Started",base:3300,bounce:0.55,time:120},
+    {name:"Product Tour",base:1900,bounce:0.37,time:95},
+    {name:"Checkout",base:900,bounce:0.21,time:150},
+    {name:"About",base:1100,bounce:0.48,time:60},
+  ];
+  const sources=[
+    {name:"organic",weight:0.38,convBoost:1.1},
+    {name:"paid_search",weight:0.24,convBoost:1.35},
+    {name:"social",weight:0.18,convBoost:0.6},
+    {name:"direct",weight:0.12,convBoost:1.0},
+    {name:"email",weight:0.08,convBoost:1.6},
+  ];
+  const rows=[["page_name","date","visits","unique_visitors","bounce_rate","avg_time_on_page_seconds","conversion_events","traffic_source"]];
+  const days=14;
+  const start=new Date("2026-06-01");
+  for(let d=0;d<days;d++){
+    const date=new Date(start.getTime()+d*86400000).toISOString().slice(0,10);
+    const dayFactor=0.85+rand()*0.3+(d>=days-2?0.15:0);
+    pages.forEach(pg=>{
+      sources.forEach(src=>{
+        const visits=Math.max(5,Math.round(pg.base*src.weight*dayFactor*(0.8+rand()*0.4)));
+        const unique=Math.round(visits*(0.82+rand()*0.12));
+        const bounce=Math.min(0.85,Math.max(0.08,pg.bounce*(0.85+rand()*0.3)));
+        const time=Math.max(15,Math.round(pg.time*(0.8+rand()*0.4)));
+        const convRate=0.025*src.convBoost*(pg.name==="Checkout"?3.2:1)*(0.75+rand()*0.5);
+        const conversions=Math.round(visits*convRate);
+        rows.push([pg.name,date,visits,unique,bounce.toFixed(2),time,conversions,src.name]);
+      });
+    });
+  }
+  return rows;
+}
+
+function rowsToCSVText(rows){
+  return rows.map(r=>r.map(v=>{
+    const s=String(v);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }).join(",")).join("\n");
+}
+
+// ---------- CSV parsing ----------
+function parseCSV(text){
+  const rows=[];let field="",row=[],inQuotes=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQuotes){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else {inQuotes=false;} }
+      else field+=c;
+    } else {
+      if(c==='"') inQuotes=true;
+      else if(c===','){row.push(field);field="";}
+      else if(c==='\r'){/* skip */}
+      else if(c==='\n'){row.push(field);rows.push(row);row=[];field="";}
+      else field+=c;
+    }
+  }
+  if(field.length||row.length){row.push(field);rows.push(row);}
+  return rows.filter(r=>!(r.length===1&&r[0].trim()===""));
+}
+
+const ALIASES={
+  page:["page_name","page","page_title","url","page_path","pagepath"],
+  date:["date","day","timestamp"],
+  visits:["visits","pageviews","page_views","sessions","visit_count"],
+  unique:["unique_visitors","users","unique_users"],
+  bounce:["bounce_rate","bounce"],
+  time:["avg_time_on_page_seconds","avg_time_on_site","time_on_site","avg_session_duration","time_on_page_seconds","time_on_page"],
+  conversions:["conversion_events","conversions","goal_completions"],
+  source:["traffic_source","source","channel"]
+};
+function findCol(headers,keys){
+  const lower=headers.map(h=>h.trim().toLowerCase());
+  for(const k of keys){const idx=lower.indexOf(k); if(idx!==-1) return idx;}
+  return -1;
+}
+
+function buildDataset(rawRows){
+  if(rawRows.length<2) throw new Error("The file needs a header row plus at least one data row.");
+  const headers=rawRows[0];
+  const cols={
+    page:findCol(headers,ALIASES.page),
+    date:findCol(headers,ALIASES.date),
+    visits:findCol(headers,ALIASES.visits),
+    unique:findCol(headers,ALIASES.unique),
+    bounce:findCol(headers,ALIASES.bounce),
+    time:findCol(headers,ALIASES.time),
+    conversions:findCol(headers,ALIASES.conversions),
+    source:findCol(headers,ALIASES.source)
+  };
+  if(cols.visits===-1) throw new Error("No visits/pageviews column found. Expected a header named one of: "+ALIASES.visits.join(", ")+".");
+
+  // detect whether bounce rate is 0-1 or 0-100
+  let bounceLooksPercent=false;
+  if(cols.bounce!==-1){
+    for(let i=1;i<rawRows.length;i++){
+      const v=parseFloat(rawRows[i][cols.bounce]);
+      if(!isNaN(v)&&v>1.5){bounceLooksPercent=true;break;}
+    }
+  }
+
+  const items=[];
+  for(let i=1;i<rawRows.length;i++){
+    const r=rawRows[i];
+    if(!r||r.every(c=>c===undefined||c.trim()==="")) continue;
+    const visits=parseFloat(r[cols.visits]);
+    if(isNaN(visits)) continue;
+    let bounce=cols.bounce!==-1?parseFloat(r[cols.bounce]):NaN;
+    if(!isNaN(bounce)&&bounceLooksPercent) bounce=bounce/100;
+    items.push({
+      page: cols.page!==-1 ? (r[cols.page]||"(untitled page)").trim() : "(all pages)",
+      date: cols.date!==-1 ? (r[cols.date]||"").trim() : null,
+      visits: visits,
+      unique: cols.unique!==-1?parseFloat(r[cols.unique]):NaN,
+      bounce: bounce,
+      time: cols.time!==-1?parseFloat(r[cols.time]):NaN,
+      conversions: cols.conversions!==-1?(parseFloat(r[cols.conversions])||0):0,
+      source: cols.source!==-1 ? (r[cols.source]||"(unspecified)").trim() : "(unspecified)"
+    });
+  }
+  if(items.length===0) throw new Error("No usable data rows were found after the header.");
+  return {items, hasPage:cols.page!==-1, hasDate:cols.date!==-1, hasBounce:cols.bounce!==-1, hasTime:cols.time!==-1, hasConversions:cols.conversions!==-1, hasSource:cols.source!==-1, headers};
+}
+
+// ---------- aggregation ----------
+function aggregate(ds){
+  const items=ds.items;
+  const totalVisits=items.reduce((s,r)=>s+r.visits,0);
+  const totalConversions=items.reduce((s,r)=>s+(r.conversions||0),0);
+
+  const byPage=new Map();
+  items.forEach(r=>{
+    const e=byPage.get(r.page)||{visits:0,bounceW:0,bounceN:0};
+    e.visits+=r.visits;
+    if(!isNaN(r.bounce)){e.bounceW+=r.bounce*r.visits;e.bounceN+=r.visits;}
+    byPage.set(r.page,e);
+  });
+  let mostVisitedPage=null,highestBouncePage=null;
+  byPage.forEach((v,k)=>{
+    if(!mostVisitedPage||v.visits>mostVisitedPage.visits) mostVisitedPage={page:k,visits:v.visits};
+    if(v.bounceN>0){
+      const rate=v.bounceW/v.bounceN;
+      if(!highestBouncePage||rate>highestBouncePage.rate) highestBouncePage={page:k,rate:rate};
+    }
+  });
+
+  let timeW=0,timeN=0;
+  items.forEach(r=>{ if(!isNaN(r.time)){timeW+=r.time*r.visits;timeN+=r.visits;} });
+  const avgTime=timeN>0?timeW/timeN:NaN;
+
+  const bySource=new Map();
+  items.forEach(r=>{
+    const e=bySource.get(r.source)||{visits:0,conversions:0};
+    e.visits+=r.visits; e.conversions+=(r.conversions||0);
+    bySource.set(r.source,e);
+  });
+  let bestSource=null;
+  bySource.forEach((v,k)=>{
+    const rate=v.visits>0?v.conversions/v.visits:0;
+    if(!bestSource||rate>bestSource.rate) bestSource={source:k,rate:rate,visits:v.visits,conversions:v.conversions};
+  });
+
+  const byDate=new Map();
+  items.forEach(r=>{
+    const key=r.date||"—";
+    byDate.set(key,(byDate.get(key)||0)+r.visits);
+  });
+  let dateSeries=Array.from(byDate.entries()).map(([date,visits])=>({date,visits}));
+  const allValidDates=dateSeries.every(d=>!isNaN(Date.parse(d.date)));
+  if(allValidDates) dateSeries.sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+  const pageSeries=Array.from(byPage.entries())
+    .map(([page,v])=>({page,visits:v.visits,bounce:v.bounceN>0?v.bounceW/v.bounceN:NaN}))
+    .sort((a,b)=>b.visits-a.visits);
+
+  const sourceSeries=Array.from(bySource.entries())
+    .map(([source,v])=>({source,visits:v.visits,conversions:v.conversions,rate:v.visits>0?v.conversions/v.visits:0}))
+    .sort((a,b)=>b.visits-a.visits);
+
+  return {totalVisits,totalConversions,mostVisitedPage,highestBouncePage,avgTime,bestSource,dateSeries,pageSeries,sourceSeries,hasBounce:ds.hasBounce,hasTime:ds.hasTime,hasConversions:ds.hasConversions,hasSource:ds.hasSource,hasDate:ds.hasDate,hasPage:ds.hasPage,rowCount:items.length};
+}
+
+// ---------- formatting ----------
+function fmtInt(n){ return isNaN(n)?"—":Math.round(n).toLocaleString("en-US"); }
+function fmtPct(n){ return isNaN(n)?"—":(n*100).toFixed(1)+"%"; }
+function fmtTime(sec){
+  if(isNaN(sec)) return "—";
+  const m=Math.floor(sec/60), s=Math.round(sec%60);
+  return m+"m "+String(s).padStart(2,"0")+"s";
+}
+function esc(s){ return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+// ---------- rendering ----------
+function renderTiles(agg){
+  const tiles=document.getElementById("tiles");
+  const shareOfTotal = agg.mostVisitedPage ? agg.mostVisitedPage.visits/agg.totalVisits : NaN;
+  const bounceFlag = agg.highestBouncePage ?
+    (agg.highestBouncePage.rate>0.55 ? '<span class="flag critical">High</span>' :
+     agg.highestBouncePage.rate>0.4 ? '<span class="flag warn">Elevated</span>' : '') : '';
+
+  tiles.innerHTML = [
+    tile("Total visits", fmtInt(agg.totalVisits), agg.hasDate ? agg.dateSeries.length+" day"+(agg.dateSeries.length===1?"":"s")+" in range" : (agg.rowCount+" rows")),
+    tile("Most-visited page", agg.mostVisitedPage?esc(agg.mostVisitedPage.page):"—", agg.mostVisitedPage?fmtInt(agg.mostVisitedPage.visits)+" visits · "+fmtPct(shareOfTotal)+" of total":"No page column found"),
+    tile("Highest bounce rate", agg.highestBouncePage?fmtPct(agg.highestBouncePage.rate):"—", agg.highestBouncePage?esc(agg.highestBouncePage.page):"No bounce-rate column found", bounceFlag),
+    tile("Avg. time on site", fmtTime(agg.avgTime), agg.hasTime?"weighted by visits":"No time-on-page column found"),
+    tile("Best traffic source", agg.bestSource?esc(agg.bestSource.source):"—", agg.bestSource?fmtPct(agg.bestSource.rate)+" conversion rate · "+fmtInt(agg.bestSource.visits)+" visits":"No traffic-source column found"),
+    tile("Overall conversion rate", agg.totalVisits?fmtPct(agg.totalConversions/agg.totalVisits):"—", agg.hasConversions?fmtInt(agg.totalConversions)+" conversions":"No conversions column found")
+  ].join("");
+}
+function tile(label,value,caption,flag){
+  return '<div class="tile"><div class="eyebrow">'+label+'</div><div class="value">'+value+'</div><div class="caption">'+(caption||"")+'</div>'+(flag||"")+'</div>';
+}
+
+function renderTrendChart(agg){
+  const wrap=document.getElementById("trend-chart-wrap");
+  const tableWrap=document.getElementById("trend-table-wrap");
+  const data=agg.dateSeries;
+  if(!data.length || !agg.hasDate){
+    wrap.innerHTML='<p class="caption" style="color:var(--text-muted);font-size:13px;">No date column found — add one to see a trend.</p>';
+    tableWrap.innerHTML="";
+    return;
+  }
+  const W=560,H=220,padL=42,padR=14,padT=14,padB=28;
+  const maxV=Math.max(...data.map(d=>d.visits))*1.08 || 1;
+  const n=data.length;
+  const x=i=> n>1 ? padL+(i/(n-1))*(W-padL-padR) : (W-padL-padR)/2+padL;
+  const y=v=> padT+(1-v/maxV)*(H-padT-padB);
+
+  const pathPts=data.map((d,i)=>x(i)+","+y(d.visits)).join(" L ");
+  const linePath="M "+pathPts;
+  const areaPath="M "+x(0)+","+y(0)+" L "+pathPts+" L "+x(n-1)+","+y(0)+" Z";
+
+  const gridRows=4;
+  let gridLines="";
+  for(let g=0; g<=gridRows; g++){
+    const v=maxV*g/gridRows;
+    const yy=y(v);
+    gridLines+='<line class="grid-line" x1="'+padL+'" x2="'+(W-padR)+'" y1="'+yy+'" y2="'+yy+'"/>';
+    gridLines+='<text class="axis-label" x="'+(padL-6)+'" y="'+(yy+3)+'" text-anchor="end">'+fmtCompact(v)+'</text>';
+  }
+  const labelEvery=Math.ceil(n/6);
+  let xLabels="";
+  data.forEach((d,i)=>{ if(i%labelEvery===0||i===n-1) xLabels+='<text class="axis-label" x="'+x(i)+'" y="'+(H-8)+'" text-anchor="middle">'+esc(shortDate(d.date))+'</text>'; });
+
+  const dots=data.map((d,i)=>'<circle data-i="'+i+'" cx="'+x(i)+'" cy="'+y(d.visits)+'" r="8" fill="transparent"/>').join("");
+
+  wrap.innerHTML =
+    '<svg class="chart" viewBox="0 0 '+W+' '+H+'" id="trend-svg">' +
+      gridLines +
+      '<path d="'+areaPath+'" fill="var(--series-1-soft)" stroke="none"/>' +
+      '<path d="'+linePath+'" fill="none" stroke="var(--series-1)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+      '<line id="trend-crosshair" x1="0" x2="0" y1="'+padT+'" y2="'+(H-padB)+'" stroke="var(--grid-line)" stroke-width="1" style="opacity:0"/>' +
+      '<circle id="trend-dot" r="4" fill="var(--series-1)" style="opacity:0"/>' +
+      xLabels +
+      dots +
+    '</svg>' +
+    '<div class="tooltip" id="trend-tooltip"></div>';
+
+  const svg=document.getElementById("trend-svg");
+  const tooltip=document.getElementById("trend-tooltip");
+  const crosshair=document.getElementById("trend-crosshair");
+  const dot=document.getElementById("trend-dot");
+  svg.querySelectorAll("circle[data-i]").forEach(c=>{
+    c.addEventListener("mouseenter",()=>{
+      const i=+c.getAttribute("data-i");
+      const d=data[i];
+      crosshair.setAttribute("x1",x(i)); crosshair.setAttribute("x2",x(i)); crosshair.style.opacity=1;
+      dot.setAttribute("cx",x(i)); dot.setAttribute("cy",y(d.visits)); dot.style.opacity=1;
+      const rect=svg.getBoundingClientRect();
+      const px=rect.width*(x(i)/W), py=rect.height*(y(d.visits)/H);
+      tooltip.style.left=px+"px"; tooltip.style.top=py+"px";
+      tooltip.innerHTML="<strong>"+esc(d.date)+"</strong><br>"+fmtInt(d.visits)+" visits";
+      tooltip.classList.add("show");
+    });
+    c.addEventListener("mouseleave",()=>{
+      crosshair.style.opacity=0; dot.style.opacity=0; tooltip.classList.remove("show");
+    });
+  });
+
+  tableWrap.innerHTML = '<table class="datatable"><thead><tr><th>Date</th><th>Visits</th></tr></thead><tbody>'+
+    data.map(d=>'<tr><td class="name">'+esc(d.date)+'</td><td>'+fmtInt(d.visits)+'</td></tr>').join("")+
+    '</tbody></table>';
+}
+function shortDate(d){ const t=Date.parse(d); if(isNaN(t)) return d; const dt=new Date(t); return (dt.getMonth()+1)+"/"+dt.getDate(); }
+function fmtCompact(n){ if(n>=1000) return (n/1000).toFixed(n>=10000?0:1)+"k"; return Math.round(n); }
+
+function renderPagesChart(agg){
+  const wrap=document.getElementById("pages-chart-wrap");
+  const tableWrap=document.getElementById("pages-table-wrap");
+  if(!agg.hasPage || !agg.pageSeries.length){
+    wrap.innerHTML='<p class="caption" style="color:var(--text-muted);font-size:13px;">No page column found — add one to compare pages.</p>';
+    tableWrap.innerHTML=""; return;
+  }
+  let rows=agg.pageSeries.slice(0,8);
+  const rest=agg.pageSeries.slice(8);
+  if(rest.length){
+    rows=rows.concat([{page:"Other ("+rest.length+")",visits:rest.reduce((s,r)=>s+r.visits,0),bounce:NaN}]);
+  }
+  const W=520, rowH=28, padT=6, padL=140, padR=46;
+  const H=padT*2+rows.length*rowH;
+  const maxV=Math.max(...rows.map(r=>r.visits))*1.05 || 1;
+  const barW=v=> (v/maxV)*(W-padL-padR);
+
+  let bars="";
+  rows.forEach((r,i)=>{
+    const yy=padT+i*rowH;
+    const w=barW(r.visits);
+    bars+='<text class="axis-label" x="'+(padL-8)+'" y="'+(yy+rowH/2+3)+'" text-anchor="end" style="font-size:11px;fill:var(--text-secondary)">'+esc(truncate(r.page,18))+'</text>';
+    bars+='<rect x="'+padL+'" y="'+(yy+6)+'" width="'+Math.max(w,2)+'" height="'+(rowH-12)+'" rx="3" fill="var(--series-1)"/>';
+    bars+='<text class="axis-label" x="'+(padL+w+8)+'" y="'+(yy+rowH/2+3)+'" style="font-size:11px;fill:var(--text-primary);font-weight:600">'+fmtCompact(r.visits)+'</text>';
+  });
+
+  wrap.innerHTML='<svg class="chart" viewBox="0 0 '+W+' '+H+'">'+bars+'</svg>';
+
+  tableWrap.innerHTML='<table class="datatable"><thead><tr><th>Page</th><th>Visits</th><th>Bounce rate</th></tr></thead><tbody>'+
+    rows.map(r=>'<tr><td class="name">'+esc(r.page)+'</td><td>'+fmtInt(r.visits)+'</td><td>'+(isNaN(r.bounce)?"—":fmtPct(r.bounce))+'</td></tr>').join("")+
+    '</tbody></table>';
+}
+function truncate(s,n){ return s.length>n ? s.slice(0,n-1)+"…" : s; }
+
+function renderSourceTable(agg){
+  const wrap=document.getElementById("source-table-wrap");
+  if(!agg.hasSource || !agg.sourceSeries.length){
+    wrap.innerHTML='<p class="caption" style="color:var(--text-muted);font-size:13px;">No traffic-source column found — add one to compare channels.</p>';
+    return;
+  }
+  const total=agg.totalVisits;
+  const bestName=agg.bestSource?agg.bestSource.source:null;
+  wrap.innerHTML='<table class="datatable"><thead><tr><th>Source</th><th>Visits</th><th>Share</th><th>Conversions</th><th>Conv. rate</th></tr></thead><tbody>'+
+    agg.sourceSeries.map(s=>{
+      const isBest=s.source===bestName;
+      return '<tr'+(isBest?' class="best-row"':'')+'><td class="name">'+esc(s.source)+(isBest?'<span class="chip">★ Best</span>':'')+'</td><td>'+fmtInt(s.visits)+'</td><td>'+fmtPct(s.visits/total)+'</td><td>'+fmtInt(s.conversions)+'</td><td>'+fmtPct(s.rate)+'</td></tr>';
+    }).join("")+
+    '</tbody></table>';
+}
+
+function renderPreview(ds){
+  const wrap=document.getElementById("preview-table-wrap");
+  const summary=document.getElementById("preview-summary");
+  const rows=ds.items.slice(0,25);
+  summary.textContent="Preview parsed rows ("+ds.items.length+" total, showing first "+rows.length+")";
+  wrap.innerHTML='<table class="datatable"><thead><tr><th>Page</th><th>Date</th><th>Visits</th><th>Bounce</th><th>Time (s)</th><th>Conversions</th><th>Source</th></tr></thead><tbody>'+
+    rows.map(r=>'<tr><td class="name">'+esc(r.page)+'</td><td>'+esc(r.date||"—")+'</td><td>'+fmtInt(r.visits)+'</td><td>'+(isNaN(r.bounce)?"—":fmtPct(r.bounce))+'</td><td>'+(isNaN(r.time)?"—":Math.round(r.time))+'</td><td>'+fmtInt(r.conversions)+'</td><td>'+esc(r.source)+'</td></tr>').join("")+
+    '</tbody></table>';
+}
+
+function renderAll(ds){
+  const agg=aggregate(ds);
+  renderTiles(agg);
+  renderTrendChart(agg);
+  renderPagesChart(agg);
+  renderSourceTable(agg);
+  renderPreview(ds);
+}
+
+function showError(msg){
+  const box=document.getElementById("error-box");
+  document.getElementById("error-text").textContent=msg;
+  box.classList.add("show");
+}
+function clearError(){ document.getElementById("error-box").classList.remove("show"); }
+
+function loadText(text, label){
+  try{
+    const raw=parseCSV(text);
+    const ds=buildDataset(raw);
+    clearError();
+    renderAll(ds);
+    const chip=document.getElementById("status-chip");
+    chip.textContent=label;
+    chip.className="status-chip loaded";
+  }catch(err){
+    showError(err.message||String(err));
+  }
+}
+
+function loadSample(){
+  const text=rowsToCSVText(generateSampleRows());
+  loadText(text,"Showing sample data");
+}
+
+// ---------- wiring ----------
+document.getElementById("file-input").addEventListener("change",e=>{
+  const file=e.target.files && e.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>loadText(String(reader.result), file.name+" loaded");
+  reader.onerror=()=>showError("The file couldn't be read. Try again or use a different file.");
+  reader.readAsText(file);
+});
+document.getElementById("reset-btn").addEventListener("click",loadSample);
+
+const dropZone=document.getElementById("drop-zone");
+["dragenter","dragover"].forEach(evt=>dropZone.addEventListener(evt,e=>{e.preventDefault();dropZone.classList.add("drag-over");}));
+["dragleave","drop"].forEach(evt=>dropZone.addEventListener(evt,e=>{e.preventDefault();dropZone.classList.remove("drag-over");}));
+dropZone.addEventListener("drop",e=>{
+  const file=e.dataTransfer.files && e.dataTransfer.files[0];
+  if(!file) return;
+  if(!/\.csv$/i.test(file.name) && file.type!=="text/csv"){ showError("That doesn't look like a CSV file. Please upload a .csv file."); return; }
+  const reader=new FileReader();
+  reader.onload=()=>loadText(String(reader.result), file.name+" loaded");
+  reader.readAsText(file);
+});
+
+document.querySelectorAll(".toggle-link").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    const key=btn.getAttribute("data-toggle");
+    const chart=document.getElementById(key+"-chart-wrap");
+    const table=document.getElementById(key+"-table-wrap");
+    const showingTable=!table.hidden;
+    table.hidden=showingTable;
+    chart.hidden=!showingTable;
+    btn.textContent=showingTable?"View as table":"View as chart";
+  });
+});
+
+loadSample();
+})();
+</script>
