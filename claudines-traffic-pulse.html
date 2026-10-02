@@ -130,6 +130,7 @@ header.page-head p{
   border-color:var(--series-1);
   color:#fff;
 }
+.btn-icon{display:inline-flex;align-items:center;gap:7px;}
 #file-input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
 .status-chip{
   display:inline-flex;
@@ -321,6 +322,20 @@ footer{
   text-align:center;
   padding-top:8px;
 }
+
+.print-date{display:none;}
+
+@media print{
+  body{max-width:none;padding:0 16px;background:#fff;color:#0b0b0b;}
+  .upload-panel,.error-box,.btn,.toggle-link,footer{display:none !important;}
+  .tile,.panel,.source-panel{border:1px solid #ccc;background:#fff;break-inside:avoid;}
+  .tiles{grid-template-columns:repeat(3,1fr);}
+  .panels{grid-template-columns:1fr 1fr;}
+  .best-row td{background:#eef8ee !important;}
+  details.preview{break-before:page;}
+  details.preview .table-scroll{max-height:none;overflow:visible;}
+  .print-date{display:block;font-size:12px;color:#52514e;margin:-10px 0 18px;}
+}
 </style>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap">
 
@@ -329,7 +344,12 @@ footer{
     <div class="eyebrow">Site analytics</div>
     <h1>Parc Claude Traffic Pulse</h1>
     <p>Upload a CSV export to see total visits, your top page, bounce rate, time on site, best traffic source, and conversion rate at a glance.</p>
+    <p class="print-date" id="print-date"></p>
   </div>
+  <button class="btn btn-icon" id="print-btn" type="button">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    Printer-Friendly
+  </button>
 </header>
 
 <div class="upload-panel" id="drop-zone">
@@ -790,6 +810,19 @@ dropZone.addEventListener("drop",e=>{
   reader.onload=()=>loadText(String(reader.result), file.name+" loaded");
   reader.readAsText(file);
 });
+
+document.getElementById("print-btn").addEventListener("click",()=>window.print());
+
+(function(){
+  const previewDetails=document.querySelector("details.preview");
+  let wasOpen=false;
+  window.addEventListener("beforeprint",()=>{
+    document.getElementById("print-date").textContent="Generated "+new Date().toLocaleString();
+    wasOpen=previewDetails.open;
+    previewDetails.open=true;
+  });
+  window.addEventListener("afterprint",()=>{ previewDetails.open=wasOpen; });
+})();
 
 document.querySelectorAll(".toggle-link").forEach(btn=>{
   btn.addEventListener("click",()=>{
