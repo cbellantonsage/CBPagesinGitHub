@@ -1,0 +1,529 @@
+<title>Claudine's Dashboard</title>
+<style>
+  /* layout: sticky header with live stat tiles + filter chips, below it a responsive card grid (auto-fill, min 260px) */
+  :root {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --fg: #101a2e;
+    --muted: #5b6577;
+    --border: #dde1ea;
+    --accent: #0055a4;
+    --accent-soft: #e8f0fb;
+    --flag-red: #ef4135;
+    --live: #1c8a4b;
+    --live-bg: #e4f5ea;
+    --draft: #6b7280;
+    --draft-bg: #eceef1;
+    --review: #b8790a;
+    --review-bg: #fbf0dd;
+    --blocked: #c3272c;
+    --blocked-bg: #fbe6e4;
+    --shadow: 0 1px 2px rgba(16, 26, 46, 0.06), 0 8px 24px -12px rgba(16, 26, 46, 0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10131c;
+      --surface: #181d29;
+      --fg: #eef1f8;
+      --muted: #9aa3b5;
+      --border: #2b3244;
+      --accent: #5b9bdb;
+      --accent-soft: #1c2c42;
+      --flag-red: #ff6e64;
+      --live: #4fcf8b;
+      --live-bg: #113322;
+      --draft: #9aa3b5;
+      --draft-bg: #262c39;
+      --review: #f0b74b;
+      --review-bg: #3a2c10;
+      --blocked: #ff6b66;
+      --blocked-bg: #3a1614;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10131c;
+    --surface: #181d29;
+    --fg: #eef1f8;
+    --muted: #9aa3b5;
+    --border: #2b3244;
+    --accent: #5b9bdb;
+    --accent-soft: #1c2c42;
+    --flag-red: #ff6e64;
+    --live: #4fcf8b;
+    --live-bg: #113322;
+    --draft: #9aa3b5;
+    --draft-bg: #262c39;
+    --review: #f0b74b;
+    --review-bg: #3a2c10;
+    --blocked: #ff6b66;
+    --blocked-bg: #3a1614;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  }
+
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 28px 48px;
+  }
+
+  h1, h2, .display {
+    font-family: "Fraunces", Georgia, "Times New Roman", serif;
+    text-wrap: balance;
+  }
+
+  header.top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 6px;
+  }
+  .eyebrow .flag {
+    display: inline-flex;
+    width: 18px;
+    height: 12px;
+    border-radius: 2px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px var(--border);
+  }
+  .flag span { flex: 1; }
+  .flag span:nth-child(1) { background: var(--accent); }
+  .flag span:nth-child(2) { background: #f5f6fa; }
+  .flag span:nth-child(3) { background: var(--flag-red); }
+
+  h1 {
+    font-size: clamp(26px, 4vw, 34px);
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.1;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: 6px;
+    max-width: 52ch;
+  }
+
+  .updated {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: right;
+  }
+  .updated strong { color: var(--fg); font-weight: 600; }
+
+  .readiness {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+  }
+  .readiness-figure {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    flex: none;
+  }
+  .readiness-figure .n {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 32px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--live);
+  }
+  .readiness-figure .pct { font-size: 18px; font-weight: 600; color: var(--live); }
+  .readiness-body { flex: 1 1 220px; min-width: 0; }
+  .readiness-label {
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+  .readiness-track {
+    height: 10px;
+    border-radius: 999px;
+    background: var(--border);
+    overflow: hidden;
+    display: flex;
+  }
+  .readiness-seg { height: 100%; }
+  .readiness-seg.live { background: var(--live); }
+  .readiness-seg.review { background: var(--review); }
+  .readiness-seg.draft { background: var(--draft); }
+  .readiness-seg.blocked { background: var(--blocked); }
+  .readiness-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .readiness-legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+  .stat:hover { box-shadow: var(--shadow); }
+  .stat:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .stat.active { box-shadow: var(--shadow); }
+  .stat .n {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 26px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .label {
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+  .stat[data-key="all"] .n { color: var(--accent); }
+  .stat[data-key="live"] .dot { background: var(--live); }
+  .stat[data-key="draft"] .dot { background: var(--draft); }
+  .stat[data-key="review"] .dot { background: var(--review); }
+  .stat[data-key="blocked"] .dot { background: var(--blocked); }
+
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 22px;
+  }
+  .chip {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 6px 13px;
+    font-size: 13px;
+    cursor: pointer;
+    font: inherit;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--fg); }
+  .chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+    transition: transform 0.15s ease;
+  }
+  .card:hover { transform: translateY(-2px); }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .card h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    font-family: "Public Sans", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.3;
+    min-width: 0;
+  }
+
+  .section-tag {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 6px;
+    padding: 3px 8px;
+    white-space: nowrap;
+    flex: none;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 4px 10px 4px 8px;
+    width: fit-content;
+  }
+  .status-pill .dot { width: 7px; height: 7px; }
+
+  .status-live { background: var(--live-bg); color: var(--live); }
+  .status-draft { background: var(--draft-bg); color: var(--draft); }
+  .status-review { background: var(--review-bg); color: var(--review); }
+  .status-blocked { background: var(--blocked-bg); color: var(--blocked); }
+  .status-live .dot { background: var(--live); }
+  .status-draft .dot { background: var(--draft); }
+  .status-review .dot { background: var(--review); }
+  .status-blocked .dot { background: var(--blocked); }
+
+  .meta {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+    font-size: 12.5px;
+    color: var(--muted);
+    min-width: 0;
+  }
+  .owner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .owner-initial {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .owner span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .date { flex: none; font-variant-numeric: tabular-nums; }
+
+  .empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--muted);
+    padding: 40px 0;
+    font-size: 14px;
+  }
+
+  footer.note {
+    margin-top: 28px;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+</style>
+
+<div class="page">
+  <header class="top">
+    <div>
+      <p class="eyebrow"><span class="flag"><span></span><span></span><span></span></span> Parc Claude &middot; Content Ops</p>
+      <h1>Claudine's Dashboard</h1>
+      <p class="subtitle">Content status across the Parc Claude website, by section and owner.</p>
+    </div>
+    <p class="updated">Board last refreshed<br><strong id="refreshDate"></strong></p>
+  </header>
+
+  <div class="readiness" id="readiness"></div>
+  <div class="stats" id="stats"></div>
+  <div class="filters" id="sectionFilters"></div>
+  <div class="grid" id="grid"></div>
+
+  <footer class="note">12 pages tracked &middot; click a status tile or section chip to filter</footer>
+</div>
+
+<script>
+(function () {
+  const pages = [
+    { name: "Home & Welcome", section: "Visit Us", status: "live", owner: "Marie Laurent", updated: "2026-09-15" },
+    { name: "Le Tour Eiffel Drop", section: "Attractions", status: "live", owner: "Jean-Pierre Moreau", updated: "2026-09-20" },
+    { name: "Château Carousel", section: "Attractions", status: "draft", owner: "Amélie Rousseau", updated: "2026-09-25" },
+    { name: "Fireworks Finale", section: "Attractions", status: "review", owner: "Jean-Pierre Moreau", updated: "2026-09-24" },
+    { name: "Single-Day Tickets", section: "Tickets", status: "live", owner: "Claire Dubois", updated: "2026-09-10" },
+    { name: "Season Passes", section: "Tickets", status: "review", owner: "Marc Fontaine", updated: "2026-09-18" },
+    { name: "Group Bookings", section: "Tickets", status: "blocked", owner: "Claire Dubois", updated: "2026-08-30" },
+    { name: "Park Hours & Map", section: "Visit Us", status: "live", owner: "Marie Laurent", updated: "2026-09-22" },
+    { name: "Accessibility Guide", section: "Visit Us", status: "review", owner: "Sophie Bernard", updated: "2026-09-12" },
+    { name: "Café de Paris", section: "Food & Drink", status: "live", owner: "Nicolas Girard", updated: "2026-09-19" },
+    { name: "Le Petit Bistro", section: "Food & Drink", status: "draft", owner: "Nicolas Girard", updated: "2026-09-27" },
+    { name: "Croissant Cart", section: "Food & Drink", status: "blocked", owner: "Amélie Rousseau", updated: "2026-09-05" }
+  ];
+
+  const statusLabels = { live: "Live", draft: "Draft", review: "Needs review", blocked: "Blocked" };
+  const sections = [...new Set(pages.map(p => p.section))];
+
+  let statusFilter = "all";
+  let sectionFilter = "all";
+
+  function initials(name) {
+    return name.split(" ").map(w => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+  }
+
+  function formatDate(iso) {
+    const d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  function renderReadiness() {
+    const total = pages.length;
+    const counts = { live: 0, review: 0, draft: 0, blocked: 0 };
+    pages.forEach(p => counts[p.status]++);
+    const pct = Math.round((counts.live / total) * 100);
+    const el = document.getElementById("readiness");
+    const order = ["live", "review", "draft", "blocked"];
+    el.innerHTML = `
+      <div class="readiness-figure"><span class="n">${pct}</span><span class="pct">%</span></div>
+      <div class="readiness-body">
+        <p class="readiness-label">Launch-ready (live pages)</p>
+        <div class="readiness-track">
+          ${order.map(k => counts[k] ? `<span class="readiness-seg ${k}" style="width:${(counts[k] / total) * 100}%"></span>` : "").join("")}
+        </div>
+        <div class="readiness-legend">
+          ${order.map(k => `<span><span class="dot" style="background:var(--${k})"></span>${statusLabels[k]} ${counts[k]}</span>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderStats() {
+    const counts = { all: pages.length, live: 0, draft: 0, review: 0, blocked: 0 };
+    pages.forEach(p => counts[p.status]++);
+    const keys = ["all", "live", "draft", "review", "blocked"];
+    const labels = { all: "All pages", live: "Live", draft: "Draft", review: "Needs review", blocked: "Blocked" };
+    const el = document.getElementById("stats");
+    el.innerHTML = keys.map(k => `
+      <button type="button" class="stat${statusFilter === k ? " active" : ""}" data-key="${k}">
+        <span class="n">${counts[k]}</span>
+        <span class="label">${k !== "all" ? '<span class="dot"></span>' : ""}${labels[k]}</span>
+      </button>
+    `).join("");
+    el.querySelectorAll(".stat").forEach(btn => {
+      btn.addEventListener("click", () => {
+        statusFilter = btn.dataset.key;
+        renderStats();
+        renderGrid();
+      });
+    });
+  }
+
+  function renderSectionFilters() {
+    const el = document.getElementById("sectionFilters");
+    const opts = ["all", ...sections];
+    el.innerHTML = opts.map(s => `
+      <button type="button" class="chip${sectionFilter === s ? " active" : ""}" data-sec="${s}">${s === "all" ? "All sections" : s}</button>
+    `).join("");
+    el.querySelectorAll(".chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        sectionFilter = btn.dataset.sec;
+        renderSectionFilters();
+        renderGrid();
+      });
+    });
+  }
+
+  function renderGrid() {
+    const el = document.getElementById("grid");
+    const filtered = pages.filter(p =>
+      (statusFilter === "all" || p.status === statusFilter) &&
+      (sectionFilter === "all" || p.section === sectionFilter)
+    );
+    if (!filtered.length) {
+      el.innerHTML = `<p class="empty">No pages match this filter.</p>`;
+      return;
+    }
+    el.innerHTML = filtered.map(p => `
+      <article class="card">
+        <div class="card-top">
+          <h3>${p.name}</h3>
+          <span class="section-tag">${p.section}</span>
+        </div>
+        <span class="status-pill status-${p.status}"><span class="dot"></span>${statusLabels[p.status]}</span>
+        <div class="meta">
+          <span class="owner"><span class="owner-initial">${initials(p.owner)}</span><span>${p.owner}</span></span>
+          <span class="date">${formatDate(p.updated)}</span>
+        </div>
+      </article>
+    `).join("");
+  }
+
+  document.getElementById("refreshDate").textContent = formatDate("2026-09-30");
+
+  renderReadiness();
+  renderStats();
+  renderSectionFilters();
+  renderGrid();
+})();
+</script>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Public+Sans:wght@400;500;600;700&display=swap">
